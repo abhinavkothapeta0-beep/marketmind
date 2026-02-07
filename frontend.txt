@@ -1,0 +1,251 @@
+import streamlit as st
+import pandas as pd
+import os
+import json
+import hashlib
+
+# -------------------------------------------------
+# PAGE CONFIG
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Orderlytics",
+    page_icon="📊",
+    layout="wide"
+)
+
+# -------------------------------------------------
+# USER STORAGE
+# -------------------------------------------------
+USERS_FILE = "users.json"
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w") as f:
+            json.dump({}, f)
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f)
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# -------------------------------------------------
+# SESSION STATE
+# -------------------------------------------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+if "show_signup" not in st.session_state:
+    st.session_state.show_signup = False
+
+# -------------------------------------------------
+# LOGIN PAGE
+# -------------------------------------------------
+def login_page():
+    st.markdown("""
+    <div style="text-align:center; margin-top:40px;">
+        <h1 style="color:#6C63FF; font-size:48px;">Orderlytics</h1>
+        <p style="color:gray; font-size:18px;">
+            AI-powered Sales & Marketing Intelligence
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    users = load_users()
+
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button("Login", use_container_width=True):
+                if username in users and users[username] == hash_password(password):
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+
+        with c2:
+            if st.button("Create Account", use_container_width=True):
+                st.session_state.show_signup = True
+                st.rerun()
+
+# -------------------------------------------------
+# SIGNUP PAGE
+# -------------------------------------------------
+def signup_page():
+    st.markdown("""
+    <div style="text-align:center;">
+        <h2 style="color:#6C63FF;">Create New Account</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+    users = load_users()
+
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        new_user = st.text_input("Username")
+        new_pass = st.text_input("Password", type="password")
+        confirm = st.text_input("Confirm Password", type="password")
+
+        if st.button("Create Account", use_container_width=True):
+            if new_user == "" or new_pass == "":
+                st.warning("All fields required")
+            elif new_user in users:
+                st.error("Username already exists")
+            elif new_pass != confirm:
+                st.error("Passwords do not match")
+            else:
+                users[new_user] = hash_password(new_pass)
+                save_users(users)
+                st.success("Account created successfully")
+                st.session_state.show_signup = False
+                st.rerun()
+
+        if st.button("Back", use_container_width=True):
+            st.session_state.show_signup = False
+            st.rerun()
+
+# -------------------------------------------------
+# MAIN APP
+# -------------------------------------------------
+def main_app():
+    st.sidebar.title("Orderlytics")
+    st.sidebar.write(f"👤 {st.session_state.username}")
+
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+
+    page = st.sidebar.radio(
+        "Navigate",
+        ["Home", "Dashboard", "AI Insights", "Marketing AI"]
+    )
+
+    # ---------------- HOME ----------------
+    if page == "Home":
+        st.markdown("""
+        <style>
+            .hero {
+                background: linear-gradient(120deg, #6C63FF, #8E8BFF);
+                padding: 45px;
+                border-radius: 20px;
+                color: white;
+                text-align: center;
+            }
+            .card {
+                background-color: #F5F6FF;
+                padding: 25px;
+                border-radius: 18px;
+                text-align: center;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            }
+            .card h2 {
+                color: #4A3AFF;
+                font-weight: 700;
+            }
+            .card p {
+                color: #333333;
+                font-size: 15px;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="hero">
+            <h1>Welcome to Orderlytics 🚀</h1>
+            <p>Turn food delivery data into growth decisions</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.write("")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown(
+                "<div class='card'><h2>📈 Growth</h2><p>Smarter sales strategies</p></div>",
+                unsafe_allow_html=True
+            )
+        with col2:
+            st.markdown(
+                "<div class='card'><h2>🤖 AI</h2><p>Instant business insights</p></div>",
+                unsafe_allow_html=True
+            )
+        with col3:
+            st.markdown(
+                "<div class='card'><h2>🎯 Marketing</h2><p>Target the right customers</p></div>",
+                unsafe_allow_html=True
+            )
+
+    # ---------------- DASHBOARD ----------------
+    elif page == "Dashboard":
+        st.title("📊 Sales Dashboard")
+        file = st.file_uploader("Upload sales CSV", type=["csv"])
+        if file:
+            df = pd.read_csv(file)
+            st.dataframe(df)
+            if "sales" in df.columns:
+                st.metric("Total Sales", f"₹ {df['sales'].sum():,.2f}")
+                st.line_chart(df["sales"])
+
+    # ---------------- AI INSIGHTS ----------------
+    elif page == "AI Insights":
+        st.title("🧠 AI Insights")
+        insights = [
+            "Peak orders occur between 7–10 PM",
+            "Rainy days increase delivery demand",
+            "Discounts drive repeat customers",
+            "Weekends generate higher revenue",
+        ]
+        for i in insights:
+            st.info(i)
+
+    # ---------------- MARKETING AI ----------------
+    elif page == "Marketing AI":
+        st.title("💬 AI Marketing Assistant")
+
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        prompt = st.chat_input("Ask anything about customers, marketing, or sales")
+
+        if prompt:
+            st.session_state.messages.append({"role": "user", "content": prompt})
+
+            with st.chat_message("assistant"):
+                reply = (
+                    "Here’s an insight for you:\n\n"
+                    "• Focus on repeat customers with loyalty offers\n"
+                    "• Push dinner-time ads between 7–10 PM\n"
+                    "• Offer rain-day discounts to boost orders\n\n"
+                    "Ask me more about growth, customers, or marketing ideas!"
+                )
+                st.markdown(reply)
+
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
+# -------------------------------------------------
+# ENTRY POINT
+# -------------------------------------------------
+if st.session_state.logged_in:
+    main_app()
+else:
+    if st.session_state.show_signup:
+        signup_page()
+    else:
+        login_page()
