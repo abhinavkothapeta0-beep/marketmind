@@ -1,2 +1,3 @@
 # marketmind
-is show the raw data is analysed
+ raw data is analysed
+by the ai and respond to our queries
